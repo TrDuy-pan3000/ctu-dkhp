@@ -21,3 +21,8 @@ test('stops on ambiguous rejection', () => {
   const result = transition({ state: 'submitting-primary', attempt: 0 }, { type: 'OUTCOME', category: 'ambiguous' });
   assert.deepEqual(result, { state: 'manual-attention', attempt: 0, reason: 'AMBIGUOUS_OUTCOME' });
 });
+
+test('rejects an outcome received outside a submission state', () => {
+  const result = transition({ state: 'prepared', attempt: 0 }, { type: 'OUTCOME', category: 'success' });
+  assert.deepEqual(result, { state: 'manual-attention', attempt: 0, reason: 'OUTCOME_OUT_OF_SEQUENCE' });
+});
