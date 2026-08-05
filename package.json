@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "lint": "node --check src/shared/model.js && node --check src/shared/clock.js && node --check src/shared/state-machine.js && node --check src/background/coordinator.js && node --check src/background/service-worker.js && node --check src/content/registration-adapter.js && node --check src/content/registration-page.js && node --check src/popup/popup.js"
+    "lint": "node --check src/shared/model.js && node --check src/shared/clock.js && node --check src/shared/state-machine.js && node --check src/shared/precision-scheduler.js && node --check src/background/coordinator.js && node --check src/background/service-worker.js && node --check src/content/precision-scheduler.js && node --check src/content/registration-adapter.js && node --check src/content/registration-page.js && node --check src/popup/popup.js"
   },
   "devDependencies": {
     "jsdom": "^30.0.1"

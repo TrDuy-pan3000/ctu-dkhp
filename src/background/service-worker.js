@@ -99,7 +99,7 @@ async function sendToRegistrationTab(command) {
       if (!outcome.ok) throw new Error(outcome.error);
     }
   }
-  if (command.type === 'CLICK_REGISTER') {
+  if (command.type === 'CLICK_REGISTER' || command.type === 'ARM_PRECISION_CLICK') {
     const outcome = await coordinator.handleClickOutcome(command.runId, response ?? { category: 'ambiguous' });
     if (!outcome.ok) throw new Error(outcome.error);
   }

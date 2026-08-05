@@ -1,7 +1,7 @@
 const adapter = globalThis.CtuRegistrationAdapter;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || !['PREPARE', 'SCAN_COURSES', 'SUBMIT', 'CLICK_REGISTER'].includes(message.type)) {
+  if (!message || !['PREPARE', 'SCAN_COURSES', 'SUBMIT', 'CLICK_REGISTER', 'ARM_PRECISION_CLICK', 'CANCEL_PRECISION_CLICK'].includes(message.type)) {
     return undefined;
   }
 
@@ -21,8 +21,66 @@ async function handleCommand(message) {
   if (message.type === 'CLICK_REGISTER') {
     return clickRegister(message.dryRun === true);
   }
+  if (message.type === 'ARM_PRECISION_CLICK') {
+    return armPrecisionClick(message);
+  }
+  if (message.type === 'CANCEL_PRECISION_CLICK') {
+    return cancelPrecisionClick();
+  }
 
   return submitPrepared(message.courses, message.dryRun === true);
+}
+
+let activePrecisionCancel;
+
+async function armPrecisionClick(message) {
+  const initialButton = adapter.findRegisterButton(document);
+  if (!initialButton) return { ok: false, error: 'REGISTER_BUTTON_INVALID' };
+  activePrecisionCancel?.();
+
+  const targetMs = performance.now() + (message.deadlineMs - Date.now());
+  return new Promise((resolve) => {
+    let finished = false;
+    const finish = (result) => {
+      if (finished) return;
+      finished = true;
+      activePrecisionCancel = undefined;
+      resolve(result);
+    };
+    const scheduled = globalThis.CtuPrecisionScheduler.scheduleTarget({
+      targetMs,
+      nowMs: () => performance.now(),
+      setTimeoutFn: globalThis.setTimeout,
+      clearTimeoutFn: globalThis.clearTimeout,
+      onFire: async ({ firedMs, latenessMs }) => {
+        const button = adapter.findRegisterButton(document);
+        if (!button) {
+          finish({ ok: false, error: 'REGISTER_BUTTON_INVALID', scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), latenessMs });
+          return;
+        }
+        if (message.dryRun === true) {
+          finish({ ok: true, status: 'dry-run-no-click', scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), firedMonotonicMs: firedMs, latenessMs });
+          return;
+        }
+        button.click();
+        const category = await waitForOutcome();
+        finish({ ok: true, category, scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), firedMonotonicMs: firedMs, latenessMs });
+      },
+    });
+    if (!scheduled.ok) {
+      finish(scheduled);
+      return;
+    }
+    activePrecisionCancel = () => {
+      scheduled.cancel();
+      finish({ ok: false, error: 'PRECISION_CANCELLED' });
+    };
+  });
+}
+
+function cancelPrecisionClick() {
+  activePrecisionCancel?.();
+  return { ok: true, status: 'precision-cancelled' };
 }
 
 async function clickRegister(dryRun) {

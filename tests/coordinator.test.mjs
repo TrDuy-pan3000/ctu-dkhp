@@ -142,7 +142,7 @@ test('records a completed dry run without reporting a live registration', async 
   assert.equal(saved.lastResult, 'prepared-dry-run');
 });
 
-test('click-only runs resync at preflight and send one click command at the deadline', async () => {
+test('click-only runs arm the page scheduler at preflight without a submit alarm', async () => {
   const alarms = [];
   const commands = [];
   let current = Date.parse('2026-08-10T08:00:00+07:00');
@@ -163,12 +163,14 @@ test('click-only runs resync at preflight and send one click command at the dead
 
   await coordinator.arm(run);
   await coordinator.handleAlarm('preflight:click-run-1');
-  current = Date.parse(run.openingAt);
-  const submit = await coordinator.handleAlarm('submit:click-run-1');
 
-  assert.equal(submit.state, 'submitting-primary');
-  assert.deepEqual(commands, [{ type: 'CLICK_REGISTER', runId: 'click-run-1', dryRun: true }]);
-  assert.equal(alarms.at(-1).name, 'submit:click-run-1');
+  assert.deepEqual(alarms.map(({ name }) => name), ['preflight:click-run-1']);
+  assert.deepEqual(commands, [{
+    type: 'ARM_PRECISION_CLICK',
+    runId: 'click-run-1',
+    deadlineMs: Date.parse(run.openingAt) - 250,
+    dryRun: true,
+  }]);
 });
 
 test('click-only runs stop for manual attention after an ambiguous response', async () => {
@@ -184,8 +186,6 @@ test('click-only runs stop for manual attention after an ambiguous response', as
   });
   await coordinator.arm({ openingAt: '1970-01-01T00:01:00Z', leadMinutes: 1, clickOnly: true });
   await coordinator.handleAlarm('preflight:click-run-1');
-  current = 60_000;
-  await coordinator.handleAlarm('submit:click-run-1');
 
   const result = await coordinator.handleClickOutcome('click-run-1', { ok: true, category: 'ambiguous' });
   assert.deepEqual(result, { ok: false, error: 'AMBIGUOUS_OUTCOME' });
@@ -204,9 +204,26 @@ test('click-only runs preserve button errors for diagnosis', async () => {
   });
   await coordinator.arm({ openingAt: '1970-01-01T00:01:00Z', leadMinutes: 1, clickOnly: true });
   await coordinator.handleAlarm('preflight:click-run-1');
-  current = 60_000;
-  await coordinator.handleAlarm('submit:click-run-1');
 
   const result = await coordinator.handleClickOutcome('click-run-1', { ok: false, error: 'REGISTER_BUTTON_INVALID' });
   assert.deepEqual(result, { ok: false, error: 'REGISTER_BUTTON_INVALID' });
+});
+
+test('disarming a precision-armed run cancels the page scheduler', async () => {
+  const commands = [];
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clearAlarm: async () => {},
+    clearSaved: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    now: () => 0,
+    save: async () => {},
+    send: async (command) => commands.push(command),
+    id: () => 'click-run-1',
+  });
+  await coordinator.arm({ openingAt: '1970-01-01T00:01:00Z', leadMinutes: 1, clickOnly: true });
+  await coordinator.handleAlarm('preflight:click-run-1');
+  await coordinator.disarm('click-run-1');
+
+  assert.equal(commands.at(-1).type, 'CANCEL_PRECISION_CLICK');
 });

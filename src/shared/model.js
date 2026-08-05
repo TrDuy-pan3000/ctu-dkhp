@@ -3,6 +3,7 @@ export const RUN_STATES = Object.freeze({
   ARMED: 'armed',
   PREFLIGHT: 'preflight',
   PREPARED: 'prepared',
+  PRECISION_ARMED: 'precision-armed',
   SUBMITTING_PRIMARY: 'submitting-primary',
   PRIMARY_REJECTED: 'primary-rejected',
   FALLBACK_PREPARING: 'fallback-preparing',

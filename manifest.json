@@ -20,6 +20,7 @@
     {
       "matches": ["https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan*"],
       "js": [
+        "src/content/precision-scheduler.js",
         "src/content/registration-adapter.js",
         "src/content/registration-page.js"
       ],

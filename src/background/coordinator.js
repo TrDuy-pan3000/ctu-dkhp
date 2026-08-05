@@ -38,7 +38,9 @@ export function createCoordinator(dependencies) {
     const deadline = openingAtMs - clock.offsetMs;
     const preflightAt = deadline - run.leadMinutes * 60_000;
     await dependencies.createAlarm(`preflight:${runId}`, { when: preflightAt });
-    await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
+    if (!run.clickOnly) {
+      await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
+    }
     return session;
   }
 
@@ -57,8 +59,13 @@ export function createCoordinator(dependencies) {
           return { ok: false, error: failed.reason };
         }
         const deadline = Date.parse(session.run.openingAt) - clock.offsetMs;
-        const next = await persist({ ...session, state: RUN_STATES.PREPARED, clockOffsetMs: clock.offsetMs });
-        await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
+        const next = await persist({ ...session, state: RUN_STATES.PRECISION_ARMED, clockOffsetMs: clock.offsetMs });
+        await dependencies.send?.({
+          type: 'ARM_PRECISION_CLICK',
+          runId,
+          deadlineMs: deadline,
+          dryRun: next.run.dryRun === true,
+        });
         return { ok: true, state: next.state, deadline };
       }
       const next = await persist({ ...session, state: RUN_STATES.PREFLIGHT });
@@ -68,23 +75,7 @@ export function createCoordinator(dependencies) {
 
     if (kind === 'submit') {
       if (session.run.clickOnly) {
-        if (session.state !== RUN_STATES.PREPARED) {
-          return { ok: false, error: 'RUN_NOT_PREPARED' };
-        }
-        const clock = await dependencies.clock?.();
-        if (!clock?.ok) {
-          const failed = await persist({ ...session, state: RUN_STATES.PREFLIGHT_FAILED, reason: clock?.error ?? 'CLOCK_QUORUM_FAILED' });
-          return { ok: false, error: failed.reason };
-        }
-        const deadline = Date.parse(session.run.openingAt) - clock.offsetMs;
-        if (now() + 50 < deadline) {
-          await persist({ ...session, clockOffsetMs: clock.offsetMs });
-          await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
-          return { ok: true, state: session.state, rescheduled: true, deadline };
-        }
-        const next = await persist({ ...session, state: RUN_STATES.SUBMITTING_PRIMARY, clockOffsetMs: clock.offsetMs });
-        await dependencies.send?.({ type: 'CLICK_REGISTER', runId, dryRun: next.run.dryRun === true });
-        return { ok: true, state: next.state };
+        return { ok: false, error: 'PRECISION_ARM_REQUIRED' };
       }
       if (session.state !== RUN_STATES.PREPARED || !session.preparedFingerprint) {
         return { ok: false, error: 'RUN_NOT_PREPARED' };
@@ -160,11 +151,11 @@ export function createCoordinator(dependencies) {
 
   async function handleClickOutcome(runId, outcome) {
     const session = sessions.get(runId);
-    if (!session || session.state !== RUN_STATES.SUBMITTING_PRIMARY) {
+    if (!session || ![RUN_STATES.PRECISION_ARMED, RUN_STATES.SUBMITTING_PRIMARY].includes(session.state)) {
       return { ok: false, error: 'OUTCOME_OUT_OF_SEQUENCE' };
     }
     if (outcome?.status === 'dry-run-no-click') {
-      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'dry-run-no-click' });
+      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'dry-run-no-click', timing: timingMetadata(outcome) });
       return { ok: true, state: next.state };
     }
     if (outcome?.ok === false) {
@@ -173,11 +164,12 @@ export function createCoordinator(dependencies) {
         state: RUN_STATES.MANUAL_ATTENTION,
         reason: outcome.error ?? 'CLICK_FAILED',
         lastResult: outcome.error ?? 'click-failed',
+        timing: timingMetadata(outcome),
       });
       return { ok: false, error: next.reason };
     }
     if (outcome?.category === 'success') {
-      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'verified-success' });
+      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'verified-success', timing: timingMetadata(outcome) });
       return { ok: true, state: next.state };
     }
     const next = await persist({
@@ -185,6 +177,7 @@ export function createCoordinator(dependencies) {
       state: RUN_STATES.MANUAL_ATTENTION,
       reason: outcome?.category === 'full' ? 'FULL_CAPACITY_MANUAL_RETRY' : 'AMBIGUOUS_OUTCOME',
       lastResult: outcome?.category ?? 'ambiguous',
+      timing: timingMetadata(outcome),
     });
     return { ok: false, error: next.reason };
   }
@@ -208,8 +201,16 @@ export function createCoordinator(dependencies) {
   }
 
   async function disarm(runId) {
-    if (!sessions.has(runId)) {
+    const session = sessions.get(runId);
+    if (!session) {
       return { ok: false, error: 'RUN_NOT_FOUND' };
+    }
+    if (session.run.clickOnly && session.state === RUN_STATES.PRECISION_ARMED) {
+      try {
+        await dependencies.send?.({ type: 'CANCEL_PRECISION_CLICK', runId });
+      } catch {
+        // The session is still removed even if the tab has disappeared.
+      }
     }
     await dependencies.clearAlarm?.(`preflight:${runId}`);
     await dependencies.clearAlarm?.(`submit:${runId}`);
@@ -228,4 +229,16 @@ function primaryCourses(run) {
 function sameCourses(expected, actual) {
   return Array.isArray(actual) && expected.length === actual.length
     && expected.every((course, index) => course.code === actual[index].code && course.group === actual[index].group);
+}
+
+function timingMetadata(outcome) {
+  if (!outcome || !Number.isFinite(outcome.scheduledAtMs) || !Number.isFinite(outcome.firedAtMs)) {
+    return undefined;
+  }
+  return {
+    scheduledAtMs: outcome.scheduledAtMs,
+    firedAtMs: outcome.firedAtMs,
+    firedMonotonicMs: outcome.firedMonotonicMs,
+    latenessMs: outcome.latenessMs,
+  };
 }
