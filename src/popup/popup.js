@@ -89,12 +89,18 @@ if (typeof document !== 'undefined') {
 
   async function restoreStatus() {
     const { activeSession, lastError } = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
+    const timing = activeSession?.timing;
+    const timingSuffix = Number.isFinite(timing?.latenessMs)
+      ? ` Do tre click do duoc: ${timing.latenessMs.toFixed(1)} ms.`
+      : '';
     if (lastError) {
       status.textContent = `Da dung an toan: ${lastError}`;
     } else if (activeSession?.lastResult === 'dry-run-no-click') {
-      status.textContent = 'Dry run da kiem tra nut dang ky va khong click.';
+      status.textContent = `Dry run da kiem tra nut dang ky va khong click.${timingSuffix}`;
     } else if (activeSession?.state === 'verified-success') {
-      status.textContent = 'Da xac minh ket qua dang ky.';
+      status.textContent = `Da xac minh ket qua dang ky.${timingSuffix}`;
+    } else if (activeSession?.state === 'precision-armed') {
+      status.textContent = 'Scheduler do phan giai cao da san sang trong tab CTU.';
     } else if (activeSession?.state) {
       status.textContent = `Trang thai: ${activeSession.state}`;
     }
