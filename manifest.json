@@ -5,8 +5,8 @@
   "permissions": ["storage", "alarms", "notifications", "tabs"],
   "host_permissions": [
     "https://dkmhfe.ctu.edu.vn/*",
-    "https://worldtimeapi.org/*",
-    "https://timeapi.io/*"
+    "https://timeapi.io/*",
+    "https://www.google.com/*"
   ],
   "background": {
     "service_worker": "src/background/service-worker.js",

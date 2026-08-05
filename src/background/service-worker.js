@@ -3,8 +3,8 @@ import { createCoordinator } from './coordinator.js';
 
 const CTU_REGISTRATION_URL = 'https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan*';
 const TIME_SOURCES = [
-  'https://worldtimeapi.org/api/timezone/Etc/UTC',
-  'https://timeapi.io/api/Time/current/zone?timeZone=Etc%2FUTC',
+  { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Etc%2FUTC', precision: 'milliseconds' },
+  { url: 'https://www.google.com/generate_204', precision: 'seconds' },
 ];
 
 let coordinator;
@@ -65,18 +65,24 @@ async function sendToRegistrationTab(command) {
 async function synchronizeClock() {
   const results = await Promise.allSettled(TIME_SOURCES.map(sampleTimeSource));
   const samples = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  return estimateOffset(samples);
+  const estimate = estimateOffset(samples);
+  const precise = samples.find((sample) => sample.precision === 'milliseconds');
+  const coarse = samples.find((sample) => sample.precision === 'seconds');
+  if (!estimate.ok || !precise || !coarse || Math.abs(precise.offsetMs - coarse.offsetMs) > 1_500) {
+    return { ok: false, error: 'CLOCK_QUORUM_FAILED' };
+  }
+  return { ok: true, offsetMs: precise.offsetMs };
 }
 
-async function sampleTimeSource(url) {
+async function sampleTimeSource(source) {
   const sentAt = Date.now();
-  const response = await fetch(url, { cache: 'no-store' });
+  const response = await fetch(source.url, { cache: 'no-store' });
   const receivedAt = Date.now();
   if (!response.ok) {
     throw new Error(`TIME_SOURCE_HTTP_${response.status}`);
   }
 
-  const payload = await response.json();
+  const payload = source.precision === 'milliseconds' ? await response.json() : {};
   const serverAt = Date.parse(payload.datetime ?? payload.dateTime ?? response.headers.get('date') ?? '');
   if (!Number.isFinite(serverAt)) {
     throw new Error('TIME_SOURCE_TIMESTAMP_INVALID');
@@ -85,6 +91,7 @@ async function sampleTimeSource(url) {
   return {
     offsetMs: serverAt - Math.round((sentAt + receivedAt) / 2),
     rttMs: receivedAt - sentAt,
+    precision: source.precision,
   };
 }
 
