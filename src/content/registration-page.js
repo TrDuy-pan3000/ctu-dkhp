@@ -31,8 +31,7 @@ async function scanCourses() {
     entry.selector.click();
     await nextPaint();
     const groups = adapter.extractGroupOptions(document);
-    entry.combobox.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
-    entry.combobox.blur();
+    closeDropdown(entry);
     await nextPaint();
     if (groups.length === 0) {
       return { ok: false, error: 'GROUP_CATALOG_EMPTY', courseCode: code };
@@ -40,6 +39,14 @@ async function scanCourses() {
     courses.push({ code, name: entry.name, groups });
   }
   return { ok: true, courses };
+}
+
+function closeDropdown(entry) {
+  entry.combobox.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
+  if (entry.combobox.getAttribute('aria-expanded') === 'true') {
+    entry.selector.click();
+  }
+  entry.combobox.blur();
 }
 
 async function prepareGroups(courses) {

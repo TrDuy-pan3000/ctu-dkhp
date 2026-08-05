@@ -38,14 +38,25 @@ if (typeof document !== 'undefined') {
 
   async function armRun(event) {
     event.preventDefault();
+    const armButton = document.querySelector('#arm');
+    armButton.disabled = true;
     const result = buildRun(readForm());
     if (!result.ok) {
       status.textContent = `Khong the arm: ${result.error}`;
+      armButton.disabled = false;
       return;
     }
     result.run.dryRun = document.querySelector('#dry-run').checked;
-    const response = await chrome.runtime.sendMessage({ type: 'ARM_RUN', run: result.run });
-    status.textContent = response.ok === false ? `Khong the arm: ${response.error}` : 'Da arm. Kiem tra trang CTU truoc gio mo.';
+    try {
+      const response = await withTimeout(chrome.runtime.sendMessage({ type: 'ARM_RUN', run: result.run }), 8_000);
+      status.textContent = response?.ok === false
+        ? `Khong the arm: ${response.error}`
+        : 'Da arm. Kiem tra trang CTU truoc gio mo.';
+    } catch (error) {
+      status.textContent = `Khong the arm: ${error.message || 'ARM_TIMEOUT'}`;
+    } finally {
+      armButton.disabled = false;
+    }
   }
 
   async function disarmRun() {
@@ -105,6 +116,13 @@ if (typeof document !== 'undefined') {
     } else if (activeSession?.state) {
       status.textContent = `Trang thai: ${activeSession.state}`;
     }
+  }
+
+  function withTimeout(promise, timeoutMs) {
+    return Promise.race([
+      promise,
+      new Promise((_, reject) => setTimeout(() => reject(new Error('ARM_TIMEOUT')), timeoutMs)),
+    ]);
   }
 
   function addCourse(values = {}) {

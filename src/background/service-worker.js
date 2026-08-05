@@ -113,7 +113,14 @@ async function synchronizeClock() {
 
 async function sampleTimeSource(source) {
   const sentAt = Date.now();
-  const response = await fetch(source.url, { cache: 'no-store' });
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 5_000);
+  let response;
+  try {
+    response = await fetch(source.url, { cache: 'no-store', signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
   const receivedAt = Date.now();
   if (!response.ok) {
     throw new Error(`TIME_SOURCE_HTTP_${response.status}`);
