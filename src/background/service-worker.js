@@ -1,11 +1,12 @@
-import { estimateOffset } from '../shared/clock.js';
+import { validateClockQuorum } from '../shared/clock.js';
 import { createCoordinator } from './coordinator.js';
 
 const CTU_REGISTRATION_URL = 'https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan*';
 const CTU_REGISTRATION_PREFIX = 'https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan';
 const TIME_SOURCES = [
-  { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Etc%2FUTC', precision: 'milliseconds' },
   { url: 'https://www.google.com/generate_204', precision: 'seconds' },
+  { url: 'https://www.cloudflare.com/cdn-cgi/trace', precision: 'seconds' },
+  { url: 'https://www.microsoft.com', precision: 'seconds' },
 ];
 
 let coordinator;
@@ -108,13 +109,7 @@ async function sendToRegistrationTab(command) {
 async function synchronizeClock() {
   const results = await Promise.allSettled(TIME_SOURCES.map(sampleTimeSource));
   const samples = results.flatMap((result) => result.status === 'fulfilled' ? [result.value] : []);
-  const estimate = estimateOffset(samples);
-  const precise = samples.find((sample) => sample.precision === 'milliseconds');
-  const coarse = samples.find((sample) => sample.precision === 'seconds');
-  if (!estimate.ok || !precise || !coarse || Math.abs(precise.offsetMs - coarse.offsetMs) > 1_500) {
-    return { ok: false, error: 'CLOCK_QUORUM_FAILED' };
-  }
-  return { ok: true, offsetMs: precise.offsetMs };
+  return validateClockQuorum(samples);
 }
 
 async function sampleTimeSource(source) {
