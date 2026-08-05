@@ -12,6 +12,8 @@ let coordinator;
 coordinator = createCoordinator({
   clock: synchronizeClock,
   createAlarm: (name, info) => chrome.alarms.create(name, info),
+  clearAlarm: (name) => chrome.alarms.clear(name),
+  clearSaved: () => chrome.storage.local.remove('activeSession'),
   id: () => crypto.randomUUID(),
   save: (session) => chrome.storage.local.set({ activeSession: session }),
   send: sendToRegistrationTab,
@@ -31,6 +33,13 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
         reportFailure(result);
       })
       .catch((error) => sendResponse({ ok: false, error: error.message || 'ARM_FAILED' }));
+    return true;
+  }
+  if (message?.type === 'DISARM_RUN') {
+    chrome.storage.local.get('activeSession')
+      .then(({ activeSession }) => coordinator.disarm(activeSession?.runId))
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message || 'DISARM_FAILED' }));
     return true;
   }
   return undefined;

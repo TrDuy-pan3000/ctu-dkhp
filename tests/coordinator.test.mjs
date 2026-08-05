@@ -78,3 +78,22 @@ test('refuses to arm when network clock quorum fails', async () => {
   assert.deepEqual(await coordinator.arm(run), { ok: false, error: 'CLOCK_QUORUM_FAILED' });
   assert.deepEqual(alarms, []);
 });
+
+test('disarming removes both run alarms and the persisted session', async () => {
+  const cleared = [];
+  let erased = false;
+  const coordinator = createCoordinator({
+    clearAlarm: async (name) => cleared.push(name),
+    clearSaved: async () => { erased = true; },
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    createAlarm: async () => {},
+    now: () => 0,
+    save: async () => {},
+    id: () => 'run-1',
+  });
+
+  await coordinator.arm(run);
+  assert.deepEqual(await coordinator.disarm('run-1'), { ok: true });
+  assert.deepEqual(cleared, ['preflight:run-1', 'submit:run-1']);
+  assert.equal(erased, true);
+});

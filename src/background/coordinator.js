@@ -86,7 +86,18 @@ export function createCoordinator(dependencies) {
     sessions.set(session.runId, session);
   }
 
-  return { acceptPrepared, arm, handleAlarm, restore };
+  async function disarm(runId) {
+    if (!sessions.has(runId)) {
+      return { ok: false, error: 'RUN_NOT_FOUND' };
+    }
+    await dependencies.clearAlarm?.(`preflight:${runId}`);
+    await dependencies.clearAlarm?.(`submit:${runId}`);
+    sessions.delete(runId);
+    await dependencies.clearSaved?.();
+    return { ok: true };
+  }
+
+  return { acceptPrepared, arm, disarm, handleAlarm, restore };
 }
 
 function primaryCourses(run) {

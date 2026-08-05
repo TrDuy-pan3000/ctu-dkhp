@@ -1,0 +1,26 @@
+:root { color: #18212b; font: 14px/1.4 Arial, sans-serif; }
+body { margin: 0; min-width: 340px; background: #f5f7f8; }
+main { padding: 16px; }
+header { border-bottom: 1px solid #cfd8dc; margin-bottom: 14px; }
+h1, h2, p { margin: 0; }
+h1 { font-size: 18px; }
+h2 { font-size: 14px; }
+#status { color: #52616b; margin: 4px 0 12px; }
+form, .course-row { display: grid; gap: 10px; }
+label { display: grid; gap: 4px; font-weight: 600; }
+input { box-sizing: border-box; min-width: 0; border: 1px solid #9eacb5; border-radius: 4px; padding: 7px; background: #fff; }
+section { border-top: 1px solid #cfd8dc; padding-top: 10px; }
+.section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.section-heading button, .remove-course { width: 28px; height: 28px; border: 1px solid #80909a; border-radius: 4px; background: #fff; font-size: 17px; }
+#course-list { display: grid; gap: 8px; }
+.course-row { position: relative; grid-template-columns: 1fr 82px; margin: 0; padding: 10px; border: 1px solid #cfd8dc; border-radius: 4px; }
+.course-row label:nth-child(3) { grid-column: 1 / -1; }
+.remove-course { position: absolute; top: 6px; right: 6px; color: #a32929; }
+.course-row label:first-child { padding-right: 30px; }
+.toggle { display: flex; align-items: center; gap: 8px; font-weight: 400; }
+.toggle input { min-width: auto; }
+.actions { display: grid; grid-template-columns: 1fr auto; gap: 8px; }
+#arm, #disarm { border-radius: 4px; padding: 9px 12px; font-weight: 700; }
+#arm { border: 0; background: #006a5b; color: #fff; }
+#arm:disabled { background: #83949b; }
+#disarm { border: 1px solid #b44545; background: #fff; color: #8b2020; }
