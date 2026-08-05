@@ -21,17 +21,17 @@ coordinator = createCoordinator({
   send: sendToRegistrationTab,
 });
 
-void restoreSession();
+const restoreReady = restoreSession();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  void coordinator.handleAlarm(alarm.name)
+  void restoreReady.then(() => coordinator.handleAlarm(alarm.name))
     .then(reportFailure)
     .catch((error) => reportFailure({ ok: false, error: error.message || 'ALARM_FAILED' }));
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   if (message?.type === 'ARM_RUN') {
-    coordinator.arm(message.run)
+    restoreReady.then(() => coordinator.arm(message.run))
       .then((result) => {
         sendResponse(result);
         reportFailure(result);
@@ -41,7 +41,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
   }
   if (message?.type === 'DISARM_RUN') {
     chrome.storage.local.get('activeSession')
-      .then(({ activeSession }) => coordinator.disarm(activeSession?.runId))
+      .then(({ activeSession }) => restoreReady.then(() => coordinator.disarm(activeSession?.runId)))
       .then(sendResponse)
       .catch((error) => sendResponse({ ok: false, error: error.message || 'DISARM_FAILED' }));
     return true;
@@ -51,7 +51,7 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     return true;
   }
   if (message?.type === 'PRECISION_CLICK_OUTCOME') {
-    coordinator.handleClickOutcome(message.runId, message.outcome)
+    restoreReady.then(() => coordinator.handleClickOutcome(message.runId, message.outcome))
       .then((result) => {
         sendResponse(result);
         reportFailure(result);
