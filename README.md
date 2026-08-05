@@ -1,14 +1,15 @@
 # ctu-dkhp
 
-Lightweight Chrome/Edge Manifest V3 extension for prepared, network-time-synchronized CTU course registration.
+Lightweight Chrome/Edge Manifest V3 extension for a network-time-synchronized CTU registration click.
 
 ## Safety Model
 
 - The extension never stores passwords and has no backend.
 - The user must already be signed in to the CTU registration page.
-- It prepares primary groups before the configured opening time and only submits after network-clock quorum passes.
-- It stops on an unknown response. A fallback can run only after a definite full-capacity response for one identified course.
-- A dry run performs preflight and group preparation but does not click the registration button.
+- The user selects groups directly on the CTU page; the popup does not scan or manage groups.
+- A two-source network clock is checked when arming, during preflight, and immediately before the click.
+- Ambiguous or full-capacity responses stop in `manual-attention`; no fallback group is guessed.
+- A dry run follows the complete timing and button-resolution path but does not click the registration button.
 
 ## Install
 
@@ -16,17 +17,16 @@ Lightweight Chrome/Edge Manifest V3 extension for prepared, network-time-synchro
 2. Open `chrome://extensions` in Chrome or `edge://extensions` in Edge.
 3. Enable Developer mode.
 4. Select **Load unpacked** and choose this repository folder.
-5. Keep the CTU registration tab signed in and open before arming a run.
+5. Keep the signed-in CTU registration tab open and active before arming.
 
 ## Configure A Run
 
-1. Open the extension popup.
-2. Enter the registration opening time in Vietnam time and a preparation lead time (1-30 minutes).
-3. Add each course code, its primary group, and comma-separated fallback groups in priority order.
-4. First use **Dry run** to confirm that all groups reach the CTU page's pending state.
-5. Remove Dry run only after reviewing the configuration, then select **Arm dang ky**.
+1. On the CTU page, select the desired group for every course.
+2. Open the extension popup and enter the opening time in Vietnam time plus a preparation lead time (1-30 minutes).
+3. Use **Dry run** first. It resolves the `Đăng ký` button at the scheduled time without clicking it.
+4. Clear Dry run only for an authorized live registration, then select **Arm dang ky**.
 
-The popup saves an editable draft locally. **Disarm** removes the active alarms and active run; it does not alter anything already registered by CTU.
+The popup saves the time draft locally. **Disarm** removes the active alarms and active run; it does not alter anything already registered by CTU.
 
 ## Verification
 
@@ -36,4 +36,4 @@ npm test
 npm run lint
 ```
 
-Use [manual-test-checklist.md](docs/manual-test-checklist.md) before a live run. The extension is an assistant, not a guarantee of seat availability: CTU servers may receive competing requests and may change their UI or response messages.
+Use [manual-test-checklist.md](docs/manual-test-checklist.md) before a live run. The extension cannot guarantee a seat: CTU servers may receive competing requests and may change their UI or response messages.

@@ -1,7 +1,7 @@
 const adapter = globalThis.CtuRegistrationAdapter;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || !['PREPARE', 'SCAN_COURSES', 'SUBMIT'].includes(message.type)) {
+  if (!message || !['PREPARE', 'SCAN_COURSES', 'SUBMIT', 'CLICK_REGISTER'].includes(message.type)) {
     return undefined;
   }
 
@@ -18,8 +18,19 @@ async function handleCommand(message) {
   if (message.type === 'SCAN_COURSES') {
     return scanCourses();
   }
+  if (message.type === 'CLICK_REGISTER') {
+    return clickRegister(message.dryRun === true);
+  }
 
   return submitPrepared(message.courses, message.dryRun === true);
+}
+
+async function clickRegister(dryRun) {
+  const button = adapter.findRegisterButton(document);
+  if (!button) return { ok: false, error: 'REGISTER_BUTTON_INVALID' };
+  if (dryRun) return { ok: true, status: 'dry-run-no-click' };
+  button.click();
+  return { ok: true, category: await waitForOutcome() };
 }
 
 async function scanCourses() {

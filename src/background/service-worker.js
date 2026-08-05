@@ -23,7 +23,9 @@ coordinator = createCoordinator({
 void restoreSession();
 
 chrome.alarms.onAlarm.addListener((alarm) => {
-  void coordinator.handleAlarm(alarm.name).then(reportFailure);
+  void coordinator.handleAlarm(alarm.name)
+    .then(reportFailure)
+    .catch((error) => reportFailure({ ok: false, error: error.message || 'ALARM_FAILED' }));
 });
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
@@ -95,6 +97,10 @@ async function sendToRegistrationTab(command) {
       const outcome = await coordinator.handleOutcome(command.runId, response ?? { category: 'ambiguous' });
       if (!outcome.ok) throw new Error(outcome.error);
     }
+  }
+  if (command.type === 'CLICK_REGISTER') {
+    const outcome = await coordinator.handleClickOutcome(command.runId, response ?? { category: 'ambiguous' });
+    if (!outcome.ok) throw new Error(outcome.error);
   }
   return response;
 }

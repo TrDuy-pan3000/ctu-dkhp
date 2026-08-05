@@ -35,14 +35,17 @@
       rows.set(code, { row, name, selector, combobox });
     }
 
+    const submitButton = findRegisterButton(document);
+    if (!submitButton) return { ok: false, error: 'REGISTER_BUTTON_INVALID' };
+
+    return { ok: true, rows, submitButton };
+  }
+
+  function findRegisterButton(document) {
     const submitButtons = [...document.querySelectorAll('button')]
       .filter((button) => button.type === 'submit')
       .filter((button) => /^(Dang ky|Đăng ký)$/i.test(normalize(button.textContent)));
-    if (submitButtons.length !== 1) {
-      return { ok: false, error: 'REGISTER_BUTTON_INVALID' };
-    }
-
-    return { ok: true, rows, submitButton: submitButtons[0] };
+    return submitButtons.length === 1 ? submitButtons[0] : null;
   }
 
   function normalize(value) {
@@ -80,6 +83,7 @@
     classifyOutcome,
     extractGroupOptions,
     findGroupOption,
+    findRegisterButton,
     inspectPage,
     normalize,
   });

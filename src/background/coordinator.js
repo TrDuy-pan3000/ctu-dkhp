@@ -1,4 +1,4 @@
-import { RUN_STATES, validateRun } from '../shared/model.js';
+import { RUN_STATES, validateRun, validateScheduleRun } from '../shared/model.js';
 
 export function createCoordinator(dependencies) {
   const sessions = new Map();
@@ -11,7 +11,7 @@ export function createCoordinator(dependencies) {
   }
 
   async function arm(run) {
-    const validation = validateRun(run);
+    const validation = run?.clickOnly ? validateScheduleRun(run) : validateRun(run);
     if (!validation.ok) {
       return validation;
     }
@@ -50,12 +50,42 @@ export function createCoordinator(dependencies) {
     }
 
     if (kind === 'preflight') {
+      if (session.run.clickOnly) {
+        const clock = await dependencies.clock?.();
+        if (!clock?.ok) {
+          const failed = await persist({ ...session, state: RUN_STATES.PREFLIGHT_FAILED, reason: clock?.error ?? 'CLOCK_QUORUM_FAILED' });
+          return { ok: false, error: failed.reason };
+        }
+        const deadline = Date.parse(session.run.openingAt) - clock.offsetMs;
+        const next = await persist({ ...session, state: RUN_STATES.PREPARED, clockOffsetMs: clock.offsetMs });
+        await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
+        return { ok: true, state: next.state, deadline };
+      }
       const next = await persist({ ...session, state: RUN_STATES.PREFLIGHT });
       await dependencies.send?.({ type: 'PREPARE', runId, courses: primaryCourses(next.run) });
       return { ok: true, state: next.state };
     }
 
     if (kind === 'submit') {
+      if (session.run.clickOnly) {
+        if (session.state !== RUN_STATES.PREPARED) {
+          return { ok: false, error: 'RUN_NOT_PREPARED' };
+        }
+        const clock = await dependencies.clock?.();
+        if (!clock?.ok) {
+          const failed = await persist({ ...session, state: RUN_STATES.PREFLIGHT_FAILED, reason: clock?.error ?? 'CLOCK_QUORUM_FAILED' });
+          return { ok: false, error: failed.reason };
+        }
+        const deadline = Date.parse(session.run.openingAt) - clock.offsetMs;
+        if (now() + 50 < deadline) {
+          await persist({ ...session, clockOffsetMs: clock.offsetMs });
+          await dependencies.createAlarm(`submit:${runId}`, { when: deadline });
+          return { ok: true, state: session.state, rescheduled: true, deadline };
+        }
+        const next = await persist({ ...session, state: RUN_STATES.SUBMITTING_PRIMARY, clockOffsetMs: clock.offsetMs });
+        await dependencies.send?.({ type: 'CLICK_REGISTER', runId, dryRun: next.run.dryRun === true });
+        return { ok: true, state: next.state };
+      }
       if (session.state !== RUN_STATES.PREPARED || !session.preparedFingerprint) {
         return { ok: false, error: 'RUN_NOT_PREPARED' };
       }
@@ -128,6 +158,37 @@ export function createCoordinator(dependencies) {
     return { ok: true, state: next.state };
   }
 
+  async function handleClickOutcome(runId, outcome) {
+    const session = sessions.get(runId);
+    if (!session || session.state !== RUN_STATES.SUBMITTING_PRIMARY) {
+      return { ok: false, error: 'OUTCOME_OUT_OF_SEQUENCE' };
+    }
+    if (outcome?.status === 'dry-run-no-click') {
+      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'dry-run-no-click' });
+      return { ok: true, state: next.state };
+    }
+    if (outcome?.ok === false) {
+      const next = await persist({
+        ...session,
+        state: RUN_STATES.MANUAL_ATTENTION,
+        reason: outcome.error ?? 'CLICK_FAILED',
+        lastResult: outcome.error ?? 'click-failed',
+      });
+      return { ok: false, error: next.reason };
+    }
+    if (outcome?.category === 'success') {
+      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS, lastResult: 'verified-success' });
+      return { ok: true, state: next.state };
+    }
+    const next = await persist({
+      ...session,
+      state: RUN_STATES.MANUAL_ATTENTION,
+      reason: outcome?.category === 'full' ? 'FULL_CAPACITY_MANUAL_RETRY' : 'AMBIGUOUS_OUTCOME',
+      lastResult: outcome?.category ?? 'ambiguous',
+    });
+    return { ok: false, error: next.reason };
+  }
+
   async function submitFallback(runId) {
     const session = sessions.get(runId);
     if (!session || session.state !== RUN_STATES.FALLBACK_SUBMITTING || !session.preparedFingerprint) {
@@ -157,7 +218,7 @@ export function createCoordinator(dependencies) {
     return { ok: true };
   }
 
-  return { acceptPrepared, arm, disarm, handleAlarm, handleOutcome, restore, submitFallback };
+  return { acceptPrepared, arm, disarm, handleAlarm, handleClickOutcome, handleOutcome, restore, submitFallback };
 }
 
 function primaryCourses(run) {

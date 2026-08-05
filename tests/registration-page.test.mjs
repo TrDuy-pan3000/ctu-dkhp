@@ -66,3 +66,8 @@ test('finds the CTU submit button when type is implicit from the form', () => {
   const document = new JSDOM(fixture.replace('<button type="submit">Dang ky</button>', '<button>Dang ky</button>')).window.document;
   assert.equal(globalThis.CtuRegistrationAdapter.inspectPage(document).ok, true);
 });
+
+test('finds the submit button without requiring course configuration', () => {
+  const document = new JSDOM('<button class="btn-donate">Đăng ký</button>').window.document;
+  assert.ok(globalThis.CtuRegistrationAdapter.findRegisterButton(document));
+});

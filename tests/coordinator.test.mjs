@@ -141,3 +141,72 @@ test('records a completed dry run without reporting a live registration', async 
 
   assert.equal(saved.lastResult, 'prepared-dry-run');
 });
+
+test('click-only runs resync at preflight and send one click command at the deadline', async () => {
+  const alarms = [];
+  const commands = [];
+  let current = Date.parse('2026-08-10T08:00:00+07:00');
+  const run = {
+    openingAt: '2026-08-10T09:00:00+07:00',
+    leadMinutes: 3,
+    clickOnly: true,
+    dryRun: true,
+  };
+  const coordinator = createCoordinator({
+    createAlarm: async (name, info) => alarms.push({ name, info }),
+    clock: async () => ({ ok: true, offsetMs: 250 }),
+    now: () => current,
+    save: async () => {},
+    send: async (command) => commands.push(command),
+    id: () => 'click-run-1',
+  });
+
+  await coordinator.arm(run);
+  await coordinator.handleAlarm('preflight:click-run-1');
+  current = Date.parse(run.openingAt);
+  const submit = await coordinator.handleAlarm('submit:click-run-1');
+
+  assert.equal(submit.state, 'submitting-primary');
+  assert.deepEqual(commands, [{ type: 'CLICK_REGISTER', runId: 'click-run-1', dryRun: true }]);
+  assert.equal(alarms.at(-1).name, 'submit:click-run-1');
+});
+
+test('click-only runs stop for manual attention after an ambiguous response', async () => {
+  let saved;
+  let current = 0;
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    now: () => current,
+    save: async (session) => { saved = session; },
+    send: async () => {},
+    id: () => 'click-run-1',
+  });
+  await coordinator.arm({ openingAt: '1970-01-01T00:01:00Z', leadMinutes: 1, clickOnly: true });
+  await coordinator.handleAlarm('preflight:click-run-1');
+  current = 60_000;
+  await coordinator.handleAlarm('submit:click-run-1');
+
+  const result = await coordinator.handleClickOutcome('click-run-1', { ok: true, category: 'ambiguous' });
+  assert.deepEqual(result, { ok: false, error: 'AMBIGUOUS_OUTCOME' });
+  assert.equal(saved.state, 'manual-attention');
+});
+
+test('click-only runs preserve button errors for diagnosis', async () => {
+  let current = 0;
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    now: () => current,
+    save: async () => {},
+    send: async () => {},
+    id: () => 'click-run-1',
+  });
+  await coordinator.arm({ openingAt: '1970-01-01T00:01:00Z', leadMinutes: 1, clickOnly: true });
+  await coordinator.handleAlarm('preflight:click-run-1');
+  current = 60_000;
+  await coordinator.handleAlarm('submit:click-run-1');
+
+  const result = await coordinator.handleClickOutcome('click-run-1', { ok: false, error: 'REGISTER_BUTTON_INVALID' });
+  assert.deepEqual(result, { ok: false, error: 'REGISTER_BUTTON_INVALID' });
+});

@@ -16,6 +16,8 @@ export const DEFAULT_RUN = Object.freeze({
   openingAt: '',
   leadMinutes: 3,
   courses: [],
+  clickOnly: true,
+  dryRun: false,
   armed: false,
 });
 
@@ -37,6 +39,23 @@ export function validateRun(run) {
     if ((course.fallbacks ?? []).includes(course.primary)) {
       return { ok: false, error: 'FALLBACK_DUPLICATES_PRIMARY' };
     }
+  }
+
+  return { ok: true };
+}
+
+export function validateScheduleRun(run) {
+  if (!run?.clickOnly || !run.openingAt) {
+    return { ok: false, error: 'RUN_INCOMPLETE' };
+  }
+
+  const leadMinutes = Number(run.leadMinutes);
+  if (!Number.isInteger(leadMinutes) || leadMinutes < 1 || leadMinutes > 30) {
+    return { ok: false, error: 'LEAD_TIME_INVALID' };
+  }
+
+  if (!Number.isFinite(Date.parse(run.openingAt))) {
+    return { ok: false, error: 'OPENING_TIME_INVALID' };
   }
 
   return { ok: true };

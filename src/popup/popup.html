@@ -15,22 +15,14 @@
 
       <form id="run-form">
         <label>
-          Gio mo dang ky
+          Gio mo dang ky (gio Viet Nam)
           <input id="opening-at" type="datetime-local" required>
         </label>
         <label>
           Chuan bi truoc (phut)
           <input id="lead-minutes" type="number" min="1" max="30" value="3" required>
         </label>
-
-        <section aria-labelledby="course-heading">
-          <div class="section-heading">
-            <h2 id="course-heading">Hoc phan</h2>
-            <button id="add-course" type="button" title="Them hoc phan">+</button>
-          </div>
-          <div id="course-list"></div>
-        </section>
-
+        <p class="hint">Hay tu chon nhom tren trang CTU truoc khi arm. Extension chi bam nut Đăng ký dung gio.</p>
         <label class="toggle">
           <input id="dry-run" type="checkbox">
           Dry run, khong gui dang ky
@@ -41,14 +33,6 @@
         </div>
       </form>
     </main>
-    <template id="course-template">
-      <fieldset class="course-row">
-        <label>Hoc phan <select class="course-code" required><option value="">Dang tai hoc phan...</option></select></label>
-        <label>Nhom chinh <select class="primary-group" required><option value="">Chon</option></select></label>
-        <label>Nhom du phong <select class="fallback-groups" multiple></select></label>
-        <button class="remove-course" type="button" title="Xoa hoc phan">x</button>
-      </fieldset>
-    </template>
     <script type="module" src="popup.js"></script>
   </body>
 </html>
