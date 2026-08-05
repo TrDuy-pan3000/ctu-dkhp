@@ -46,6 +46,12 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.storage.local.get(['activeSession', 'lastError']).then(sendResponse);
     return true;
   }
+  if (message?.type === 'SCAN_COURSES') {
+    sendToRegistrationTab({ type: 'SCAN_COURSES' })
+      .then(sendResponse)
+      .catch((error) => sendResponse({ ok: false, error: error.message || 'SCAN_FAILED' }));
+    return true;
+  }
   return undefined;
 });
 

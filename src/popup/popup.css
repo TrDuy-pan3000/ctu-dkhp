@@ -8,7 +8,8 @@ h2 { font-size: 14px; }
 #status { color: #52616b; margin: 4px 0 12px; }
 form, .course-row { display: grid; gap: 10px; }
 label { display: grid; gap: 4px; font-weight: 600; }
-input { box-sizing: border-box; min-width: 0; border: 1px solid #9eacb5; border-radius: 4px; padding: 7px; background: #fff; }
+input, select { box-sizing: border-box; min-width: 0; border: 1px solid #9eacb5; border-radius: 4px; padding: 7px; background: #fff; }
+select[multiple] { min-height: 78px; }
 section { border-top: 1px solid #cfd8dc; padding-top: 10px; }
 .section-heading { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
 .section-heading button, .remove-course { width: 28px; height: 28px; border: 1px solid #80909a; border-radius: 4px; background: #fff; font-size: 17px; }

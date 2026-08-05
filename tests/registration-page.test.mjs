@@ -40,3 +40,8 @@ test('finds one exact Ant Design group option', () => {
   assert.equal(option.textContent.trim(), '02');
   assert.equal(globalThis.CtuRegistrationAdapter.findGroupOption(document, '03'), null);
 });
+
+test('extracts available two-digit groups and excludes the placeholder', () => {
+  const document = new JSDOM(fixture).window.document;
+  assert.deepEqual(globalThis.CtuRegistrationAdapter.extractGroupOptions(document), ['01', '02']);
+});

@@ -43,9 +43,9 @@
     </main>
     <template id="course-template">
       <fieldset class="course-row">
-        <label>Ma hoc phan <input class="course-code" pattern="[A-Za-z]{2,}[0-9]+" required></label>
-        <label>Nhom chinh <input class="primary-group" inputmode="numeric" pattern="[0-9]{2}" required></label>
-        <label>Nhom du phong <input class="fallback-groups" placeholder="02, 03"></label>
+        <label>Hoc phan <select class="course-code" required><option value="">Dang tai hoc phan...</option></select></label>
+        <label>Nhom chinh <select class="primary-group" required><option value="">Chon</option></select></label>
+        <label>Nhom du phong <select class="fallback-groups" multiple></select></label>
         <button class="remove-course" type="button" title="Xoa hoc phan">x</button>
       </fieldset>
     </template>

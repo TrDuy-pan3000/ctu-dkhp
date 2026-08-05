@@ -8,7 +8,9 @@ export function buildRun(values) {
     courses: values.courses.map((course) => ({
       code: course.code.trim().toUpperCase(),
       primary: course.primary.trim(),
-      fallbacks: course.fallbacks.split(',').map((group) => group.trim()).filter(Boolean),
+      fallbacks: Array.isArray(course.fallbacks)
+        ? course.fallbacks
+        : course.fallbacks.split(',').map((group) => group.trim()).filter(Boolean),
     })),
   };
   if (!Number.isInteger(leadMinutes) || leadMinutes < 1 || leadMinutes > 30) {
@@ -23,6 +25,7 @@ if (typeof document !== 'undefined') {
   const list = document.querySelector('#course-list');
   const template = document.querySelector('#course-template');
   const status = document.querySelector('#status');
+  let catalog = [];
 
   addCourse();
   document.querySelector('#add-course').addEventListener('click', addCourse);
@@ -31,6 +34,7 @@ if (typeof document !== 'undefined') {
   document.querySelector('#disarm').addEventListener('click', disarmRun);
   void restoreDraft();
   void restoreStatus();
+  void loadCatalog();
 
   async function armRun(event) {
     event.preventDefault();
@@ -56,7 +60,7 @@ if (typeof document !== 'undefined') {
       courses: [...list.querySelectorAll('.course-row')].map((row) => ({
         code: row.querySelector('.course-code').value,
         primary: row.querySelector('.primary-group').value,
-        fallbacks: row.querySelector('.fallback-groups').value,
+        fallbacks: [...row.querySelector('.fallback-groups').selectedOptions].map((option) => option.value),
       })),
     };
   }
@@ -76,6 +80,16 @@ if (typeof document !== 'undefined') {
     if (list.children.length === 0) addCourse();
   }
 
+  async function loadCatalog() {
+    const response = await chrome.runtime.sendMessage({ type: 'SCAN_COURSES' });
+    if (!response?.ok) {
+      status.textContent = `Khong the nap hoc phan: ${response?.error ?? 'SCAN_FAILED'}`;
+      return;
+    }
+    catalog = response.courses;
+    for (const row of list.querySelectorAll('.course-row')) populateCourseOptions(row);
+  }
+
   async function restoreStatus() {
     const { activeSession, lastError } = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
     if (lastError) {
@@ -91,12 +105,39 @@ if (typeof document !== 'undefined') {
 
   function addCourse(values = {}) {
     const row = template.content.firstElementChild.cloneNode(true);
-    row.querySelector('.course-code').value = values.code ?? '';
-    row.querySelector('.primary-group').value = values.primary ?? '';
-    row.querySelector('.fallback-groups').value = values.fallbacks ?? '';
+    row.dataset.savedCode = values.code ?? '';
+    row.dataset.savedPrimary = values.primary ?? '';
+    row.dataset.savedFallbacks = Array.isArray(values.fallbacks) ? values.fallbacks.join(',') : values.fallbacks ?? '';
+    row.querySelector('.course-code').addEventListener('change', () => populateGroupOptions(row));
     row.querySelector('.remove-course').addEventListener('click', () => {
       if (list.children.length > 1) row.remove();
     });
     list.append(row);
+    if (catalog.length) populateCourseOptions(row);
+  }
+
+  function populateCourseOptions(row) {
+    const select = row.querySelector('.course-code');
+    const saved = row.dataset.savedCode || select.value;
+    select.replaceChildren(new Option('Chon hoc phan', ''));
+    for (const course of catalog) select.add(new Option(`${course.code} - ${course.name}`, course.code));
+    select.value = saved;
+    populateGroupOptions(row);
+  }
+
+  function populateGroupOptions(row) {
+    const course = catalog.find((item) => item.code === row.querySelector('.course-code').value);
+    const primary = row.querySelector('.primary-group');
+    const fallbacks = row.querySelector('.fallback-groups');
+    const savedPrimary = row.dataset.savedPrimary || primary.value;
+    const savedFallbacks = (row.dataset.savedFallbacks || [...fallbacks.selectedOptions].map((option) => option.value).join(','))
+      .split(',').filter(Boolean);
+    primary.replaceChildren(new Option('Chon', ''));
+    fallbacks.replaceChildren();
+    for (const group of course?.groups ?? []) {
+      primary.add(new Option(group, group));
+      fallbacks.add(new Option(group, group, false, savedFallbacks.includes(group)));
+    }
+    primary.value = savedPrimary;
   }
 }

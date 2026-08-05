@@ -1,7 +1,7 @@
 const adapter = globalThis.CtuRegistrationAdapter;
 
 chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-  if (!message || !['PREPARE', 'SUBMIT'].includes(message.type)) {
+  if (!message || !['PREPARE', 'SCAN_COURSES', 'SUBMIT'].includes(message.type)) {
     return undefined;
   }
 
@@ -15,8 +15,31 @@ async function handleCommand(message) {
   if (message.type === 'PREPARE') {
     return prepareGroups(message.courses);
   }
+  if (message.type === 'SCAN_COURSES') {
+    return scanCourses();
+  }
 
   return submitPrepared(message.courses, message.dryRun === true);
+}
+
+async function scanCourses() {
+  const page = adapter.inspectPage(document);
+  if (!page.ok) return page;
+
+  const courses = [];
+  for (const [code, entry] of page.rows) {
+    entry.selector.click();
+    await nextPaint();
+    const groups = adapter.extractGroupOptions(document);
+    entry.combobox.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, key: 'Escape' }));
+    entry.combobox.blur();
+    await nextPaint();
+    if (groups.length === 0) {
+      return { ok: false, error: 'GROUP_CATALOG_EMPTY', courseCode: code };
+    }
+    courses.push({ code, name: entry.name, groups });
+  }
+  return { ok: true, courses };
 }
 
 async function prepareGroups(courses) {

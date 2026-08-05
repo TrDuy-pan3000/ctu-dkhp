@@ -22,7 +22,9 @@
         return { ok: false, error: 'GROUP_SELECTOR_MISSING' };
       }
 
-      rows.set(code, { row, selector, combobox });
+      const codeCellIndex = cells.indexOf(codeCell);
+      const name = normalize(cells[codeCellIndex + 1]?.textContent);
+      rows.set(code, { row, name, selector, combobox });
     }
 
     if (rows.size === 0) {
@@ -63,8 +65,15 @@
     return matches.length === 1 ? matches[0] : null;
   }
 
+  function extractGroupOptions(document) {
+    return [...new Set([...document.querySelectorAll('.ant-select-item-option, [role="option"]')]
+      .map((option) => normalize(option.textContent))
+      .filter((group) => /^\d{2}$/.test(group)))];
+  }
+
   globalThis.CtuRegistrationAdapter = Object.freeze({
     classifyOutcome,
+    extractGroupOptions,
     findGroupOption,
     inspectPage,
     normalize,
