@@ -91,7 +91,11 @@ export function createCoordinator(dependencies) {
       return { ok: false, error: 'OUTCOME_OUT_OF_SEQUENCE' };
     }
     if (outcome.category === 'success') {
-      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS });
+      const next = await persist({
+        ...session,
+        state: RUN_STATES.VERIFIED_SUCCESS,
+        lastResult: session.run.dryRun ? 'prepared-dry-run' : 'verified-success',
+      });
       return { ok: true, state: next.state };
     }
     if (outcome.category !== 'full' || !outcome.courseCode) {

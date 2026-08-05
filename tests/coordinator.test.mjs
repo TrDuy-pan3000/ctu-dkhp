@@ -122,3 +122,22 @@ test('prepares the next user-configured fallback only for a known full course', 
     courses: [{ code: 'CT112', group: '02' }],
   });
 });
+
+test('records a completed dry run without reporting a live registration', async () => {
+  let saved;
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    now: () => 0,
+    save: async (session) => { saved = session; },
+    send: async () => {},
+    id: () => 'run-1',
+  });
+  await coordinator.arm({ ...run, dryRun: true });
+  await coordinator.handleAlarm('preflight:run-1');
+  await coordinator.acceptPrepared('run-1', [{ code: 'CT112', group: '01' }]);
+  await coordinator.handleAlarm('submit:run-1');
+  await coordinator.handleOutcome('run-1', { category: 'success' });
+
+  assert.equal(saved.lastResult, 'prepared-dry-run');
+});

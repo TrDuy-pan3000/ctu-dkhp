@@ -30,6 +30,7 @@ if (typeof document !== 'undefined') {
   form.addEventListener('input', saveDraft);
   document.querySelector('#disarm').addEventListener('click', disarmRun);
   void restoreDraft();
+  void restoreStatus();
 
   async function armRun(event) {
     event.preventDefault();
@@ -73,6 +74,19 @@ if (typeof document !== 'undefined') {
     list.replaceChildren();
     for (const course of draftRun.courses ?? []) addCourse(course);
     if (list.children.length === 0) addCourse();
+  }
+
+  async function restoreStatus() {
+    const { activeSession, lastError } = await chrome.runtime.sendMessage({ type: 'GET_STATUS' });
+    if (lastError) {
+      status.textContent = `Da dung an toan: ${lastError}`;
+    } else if (activeSession?.lastResult === 'prepared-dry-run') {
+      status.textContent = 'Dry run da chuan bi nhom va khong gui dang ky.';
+    } else if (activeSession?.state === 'verified-success') {
+      status.textContent = 'Da xac minh ket qua dang ky.';
+    } else if (activeSession?.state) {
+      status.textContent = `Trang thai: ${activeSession.state}`;
+    }
   }
 
   function addCourse(values = {}) {

@@ -42,6 +42,10 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
       .catch((error) => sendResponse({ ok: false, error: error.message || 'DISARM_FAILED' }));
     return true;
   }
+  if (message?.type === 'GET_STATUS') {
+    chrome.storage.local.get(['activeSession', 'lastError']).then(sendResponse);
+    return true;
+  }
   return undefined;
 });
 
