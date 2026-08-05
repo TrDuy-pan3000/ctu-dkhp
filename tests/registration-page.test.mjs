@@ -45,3 +45,11 @@ test('extracts available two-digit groups and excludes the placeholder', () => {
   const document = new JSDOM(fixture).window.document;
   assert.deepEqual(globalThis.CtuRegistrationAdapter.extractGroupOptions(document), ['01', '02']);
 });
+
+test('ignores a timetable row that repeats a selected course code', () => {
+  const document = new JSDOM(fixture.replace('</body>', `
+    <table><tbody><tr><td>TC027</td><td>Co vua 3</td><td>03</td></tr></tbody></table>
+  </body>`)).window.document;
+
+  assert.equal(globalThis.CtuRegistrationAdapter.inspectPage(document).ok, true);
+});

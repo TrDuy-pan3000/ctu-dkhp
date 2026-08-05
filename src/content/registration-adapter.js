@@ -3,8 +3,13 @@
 
   function inspectPage(document) {
     const rows = new Map();
+    const courseTable = [...document.querySelectorAll('table')]
+      .find((table) => table.querySelector('input[role="combobox"]'));
+    if (!courseTable) {
+      return { ok: false, error: 'COURSE_TABLE_MISSING' };
+    }
 
-    for (const row of document.querySelectorAll('tr')) {
+    for (const row of courseTable.querySelectorAll('tr')) {
       const cells = [...row.querySelectorAll('td')];
       const codeCell = cells.find((cell) => COURSE_CODE.test(normalize(cell.textContent)));
       if (!codeCell) {
@@ -25,10 +30,6 @@
       const codeCellIndex = cells.indexOf(codeCell);
       const name = normalize(cells[codeCellIndex + 1]?.textContent);
       rows.set(code, { row, name, selector, combobox });
-    }
-
-    if (rows.size === 0) {
-      return { ok: false, error: 'COURSE_TABLE_MISSING' };
     }
 
     const submitButtons = [...document.querySelectorAll('button[type="submit"]')]

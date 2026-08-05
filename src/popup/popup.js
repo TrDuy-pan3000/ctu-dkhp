@@ -81,13 +81,17 @@ if (typeof document !== 'undefined') {
   }
 
   async function loadCatalog() {
-    const response = await chrome.runtime.sendMessage({ type: 'SCAN_COURSES' });
-    if (!response?.ok) {
-      status.textContent = `Khong the nap hoc phan: ${response?.error ?? 'SCAN_FAILED'}`;
-      return;
+    try {
+      const response = await chrome.runtime.sendMessage({ type: 'SCAN_COURSES' });
+      if (!response?.ok) {
+        status.textContent = `Khong the nap hoc phan: ${response?.error ?? 'SCAN_FAILED'}`;
+        return;
+      }
+      catalog = response.courses;
+      for (const row of list.querySelectorAll('.course-row')) populateCourseOptions(row);
+    } catch (error) {
+      status.textContent = `Khong the nap hoc phan: ${error.message || 'SCAN_FAILED'}`;
     }
-    catalog = response.courses;
-    for (const row of list.querySelectorAll('.course-row')) populateCourseOptions(row);
   }
 
   async function restoreStatus() {
