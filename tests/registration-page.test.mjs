@@ -61,3 +61,8 @@ test('skips a course row in nhu cau state without a group selector', () => {
   assert.equal(result.ok, true);
   assert.equal(result.rows.has('TC027'), false);
 });
+
+test('finds the CTU submit button when type is implicit from the form', () => {
+  const document = new JSDOM(fixture.replace('<button type="submit">Dang ky</button>', '<button>Dang ky</button>')).window.document;
+  assert.equal(globalThis.CtuRegistrationAdapter.inspectPage(document).ok, true);
+});

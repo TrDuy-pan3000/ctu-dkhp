@@ -35,7 +35,8 @@
       rows.set(code, { row, name, selector, combobox });
     }
 
-    const submitButtons = [...document.querySelectorAll('button[type="submit"]')]
+    const submitButtons = [...document.querySelectorAll('button')]
+      .filter((button) => button.type === 'submit')
       .filter((button) => /^(Dang ky|Đăng ký)$/i.test(normalize(button.textContent)));
     if (submitButtons.length !== 1) {
       return { ok: false, error: 'REGISTER_BUTTON_INVALID' };
