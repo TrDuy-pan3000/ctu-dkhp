@@ -50,6 +50,15 @@ chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
     chrome.storage.local.get(['activeSession', 'lastError']).then(sendResponse);
     return true;
   }
+  if (message?.type === 'PRECISION_CLICK_OUTCOME') {
+    coordinator.handleClickOutcome(message.runId, message.outcome)
+      .then((result) => {
+        sendResponse(result);
+        reportFailure(result);
+      })
+      .catch((error) => sendResponse({ ok: false, error: error.message || 'PRECISION_OUTCOME_FAILED' }));
+    return true;
+  }
   if (message?.type === 'SCAN_COURSES') {
     sendToRegistrationTab({ type: 'SCAN_COURSES' })
       .then(sendResponse)
@@ -99,7 +108,7 @@ async function sendToRegistrationTab(command) {
       if (!outcome.ok) throw new Error(outcome.error);
     }
   }
-  if (command.type === 'CLICK_REGISTER' || command.type === 'ARM_PRECISION_CLICK') {
+  if (command.type === 'CLICK_REGISTER') {
     const outcome = await coordinator.handleClickOutcome(command.runId, response ?? { category: 'ambiguous' });
     if (!outcome.ok) throw new Error(outcome.error);
   }

@@ -39,48 +39,45 @@ async function armPrecisionClick(message) {
   activePrecisionCancel?.();
 
   const targetMs = performance.now() + (message.deadlineMs - Date.now());
-  return new Promise((resolve) => {
-    let finished = false;
-    const finish = (result) => {
-      if (finished) return;
-      finished = true;
+  const scheduled = globalThis.CtuPrecisionScheduler.scheduleTarget({
+    targetMs,
+    nowMs: () => performance.now(),
+    setTimeoutFn: globalThis.setTimeout,
+    clearTimeoutFn: globalThis.clearTimeout,
+    onFire: async ({ firedMs, latenessMs }) => {
       activePrecisionCancel = undefined;
-      resolve(result);
-    };
-    const scheduled = globalThis.CtuPrecisionScheduler.scheduleTarget({
-      targetMs,
-      nowMs: () => performance.now(),
-      setTimeoutFn: globalThis.setTimeout,
-      clearTimeoutFn: globalThis.clearTimeout,
-      onFire: async ({ firedMs, latenessMs }) => {
-        const button = adapter.findRegisterButton(document);
-        if (!button) {
-          finish({ ok: false, error: 'REGISTER_BUTTON_INVALID', scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), latenessMs });
-          return;
-        }
-        if (message.dryRun === true) {
-          finish({ ok: true, status: 'dry-run-no-click', scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), firedMonotonicMs: firedMs, latenessMs });
-          return;
-        }
-        button.click();
-        const category = await waitForOutcome();
-        finish({ ok: true, category, scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), firedMonotonicMs: firedMs, latenessMs });
-      },
-    });
-    if (!scheduled.ok) {
-      finish(scheduled);
-      return;
-    }
-    activePrecisionCancel = () => {
-      scheduled.cancel();
-      finish({ ok: false, error: 'PRECISION_CANCELLED' });
-    };
+      const timing = { scheduledAtMs: message.deadlineMs, firedAtMs: Date.now(), firedMonotonicMs: firedMs, latenessMs };
+      const button = adapter.findRegisterButton(document);
+      if (!button) {
+        await sendPrecisionOutcome(message.runId, { ok: false, error: 'REGISTER_BUTTON_INVALID', ...timing });
+        return;
+      }
+      if (message.dryRun === true) {
+        await sendPrecisionOutcome(message.runId, { ok: true, status: 'dry-run-no-click', ...timing });
+        return;
+      }
+      button.click();
+      const category = await waitForOutcome();
+      await sendPrecisionOutcome(message.runId, { ok: true, category, ...timing });
+    },
   });
+  if (!scheduled.ok) return scheduled;
+  activePrecisionCancel = () => scheduled.cancel();
+  return { ok: true, status: 'precision-armed', scheduledAtMs: message.deadlineMs, armedAtMs: Date.now() };
 }
 
 function cancelPrecisionClick() {
   activePrecisionCancel?.();
+  activePrecisionCancel = undefined;
   return { ok: true, status: 'precision-cancelled' };
+}
+
+async function sendPrecisionOutcome(runId, outcome) {
+  try {
+    await chrome.runtime.sendMessage({ type: 'PRECISION_CLICK_OUTCOME', runId, outcome });
+  } catch {
+    // The click already happened; the popup can still inspect CTU directly.
+  }
 }
 
 async function clickRegister(dryRun) {
