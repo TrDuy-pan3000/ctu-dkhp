@@ -53,3 +53,11 @@ test('ignores a timetable row that repeats a selected course code', () => {
 
   assert.equal(globalThis.CtuRegistrationAdapter.inspectPage(document).ok, true);
 });
+
+test('skips a course row in nhu cau state without a group selector', () => {
+  const document = new JSDOM(fixture.replace('</tbody>', '<tr><td>TC027</td><td>Co vua 3</td><td>Dang ky nhu cau</td></tr></tbody>')).window.document;
+
+  const result = globalThis.CtuRegistrationAdapter.inspectPage(document);
+  assert.equal(result.ok, true);
+  assert.equal(result.rows.has('TC027'), false);
+});

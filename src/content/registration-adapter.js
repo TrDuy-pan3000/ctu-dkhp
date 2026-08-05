@@ -22,6 +22,9 @@
       }
 
       const combobox = row.querySelector('input[role="combobox"]');
+      if (!combobox) {
+        continue;
+      }
       const selector = combobox?.closest('.ant-select') ?? combobox?.parentElement;
       if (!combobox || !selector) {
         return { ok: false, error: 'GROUP_SELECTOR_MISSING' };
