@@ -18,7 +18,10 @@
   "content_scripts": [
     {
       "matches": ["https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan*"],
-      "js": ["src/content/registration-page.js"],
+      "js": [
+        "src/content/registration-adapter.js",
+        "src/content/registration-page.js"
+      ],
       "run_at": "document_idle"
     }
   ]
