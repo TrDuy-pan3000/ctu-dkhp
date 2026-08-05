@@ -22,8 +22,12 @@ export function createCoordinator(dependencies) {
     }
 
     const openingAtMs = Date.parse(run.openingAt);
-    if (!Number.isFinite(openingAtMs) || openingAtMs <= now()) {
+    if (!Number.isFinite(openingAtMs)) {
       return { ok: false, error: 'OPENING_TIME_INVALID' };
+    }
+    const deadline = openingAtMs - clock.offsetMs;
+    if (deadline <= now()) {
+      return { ok: false, error: 'OPENING_TIME_PAST' };
     }
 
     const runId = dependencies.id?.() ?? crypto.randomUUID();
@@ -35,7 +39,6 @@ export function createCoordinator(dependencies) {
       preparedFingerprint: null,
       clockOffsetMs: clock.offsetMs,
     });
-    const deadline = openingAtMs - clock.offsetMs;
     const preflightAt = deadline - run.leadMinutes * 60_000;
     await dependencies.createAlarm(`preflight:${runId}`, { when: preflightAt });
     if (!run.clickOnly) {

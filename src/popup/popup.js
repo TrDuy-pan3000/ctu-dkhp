@@ -7,7 +7,7 @@ export function buildRun(values) {
     return { ok: false, error: 'LEAD_TIME_INVALID' };
   }
 
-  const openingAt = `${values.openingAt}:00+07:00`;
+  const openingAt = normalizeOpeningAt(values.openingAt);
   if (!Number.isFinite(Date.parse(openingAt))) {
     return { ok: false, error: 'OPENING_TIME_INVALID' };
   }
@@ -21,6 +21,14 @@ export function buildRun(values) {
       dryRun: values.dryRun === true,
     },
   };
+}
+
+function normalizeOpeningAt(value) {
+  const normalized = String(value).trim();
+  if (/[zZ]|[+-]\d{2}:\d{2}$/.test(normalized)) return normalized;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(normalized)) return `${normalized}:00+07:00`;
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/.test(normalized)) return `${normalized}+07:00`;
+  return normalized;
 }
 
 if (typeof document !== 'undefined') {

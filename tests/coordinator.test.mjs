@@ -79,6 +79,21 @@ test('refuses to arm when network clock quorum fails', async () => {
   assert.deepEqual(alarms, []);
 });
 
+test('checks opening time after applying the network clock offset', async () => {
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 2_000 }),
+    now: () => 0,
+    save: async () => {},
+  });
+
+  assert.deepEqual(await coordinator.arm({
+    openingAt: '1970-01-01T00:00:01Z',
+    leadMinutes: 1,
+    clickOnly: true,
+  }), { ok: false, error: 'OPENING_TIME_PAST' });
+});
+
 test('disarming removes both run alarms and the persisted session', async () => {
   const cleared = [];
   let erased = false;

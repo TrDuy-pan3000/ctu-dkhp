@@ -25,3 +25,10 @@ test('buildRun rejects an invalid lead time', () => {
 
   assert.deepEqual(result, { ok: false, error: 'LEAD_TIME_INVALID' });
 });
+
+test('buildRun accepts a datetime-local value that already includes seconds', () => {
+  const result = buildRun({ openingAt: '2026-08-10T09:00:00', leadMinutes: '3' });
+
+  assert.equal(result.ok, true);
+  assert.equal(result.run.openingAt, '2026-08-10T09:00:00+07:00');
+});
