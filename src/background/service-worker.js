@@ -67,6 +67,18 @@ async function sendToRegistrationTab(command) {
     if (!prepared.ok) {
       throw new Error(prepared.error);
     }
+    if (prepared.state === 'fallback-submitting') {
+      const submitted = await coordinator.submitFallback(command.runId);
+      if (!submitted.ok) throw new Error(submitted.error);
+    }
+  }
+  if (command.type === 'SUBMIT') {
+    if (response?.status === 'prepared-dry-run') {
+      await coordinator.handleOutcome(command.runId, { category: 'success' });
+    } else {
+      const outcome = await coordinator.handleOutcome(command.runId, response ?? { category: 'ambiguous' });
+      if (!outcome.ok) throw new Error(outcome.error);
+    }
   }
   return response;
 }

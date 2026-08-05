@@ -48,7 +48,7 @@ async function prepareGroups(courses) {
   return { ok: true, prepared: courses.map(({ code, group }) => ({ code, group })) };
 }
 
-function submitPrepared(courses, dryRun) {
+async function submitPrepared(courses, dryRun) {
   const page = adapter.inspectPage(document);
   if (!page.ok) {
     return page;
@@ -66,7 +66,11 @@ function submitPrepared(courses, dryRun) {
   }
 
   page.submitButton.click();
-  return { ok: true, status: 'submit-triggered' };
+  const outcome = await waitForOutcome();
+  if (outcome === 'full' && courses.length === 1) {
+    return { ok: true, category: outcome, courseCode: courses[0].code };
+  }
+  return { ok: true, category: outcome };
 }
 
 function hasSelectedGroup(selector, group) {
@@ -76,4 +80,26 @@ function hasSelectedGroup(selector, group) {
 
 function nextPaint() {
   return new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+}
+
+function waitForOutcome(timeoutMs = 10_000) {
+  return new Promise((resolve) => {
+    const existing = adapter.classifyOutcome(document);
+    if (existing !== 'ambiguous') {
+      resolve(existing);
+      return;
+    }
+    const observer = new MutationObserver(() => {
+      const outcome = adapter.classifyOutcome(document);
+      if (outcome !== 'ambiguous') {
+        observer.disconnect();
+        resolve(outcome);
+      }
+    });
+    observer.observe(document.body, { childList: true, subtree: true, characterData: true });
+    setTimeout(() => {
+      observer.disconnect();
+      resolve('ambiguous');
+    }, timeoutMs);
+  });
 }

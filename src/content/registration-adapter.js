@@ -43,7 +43,10 @@
   }
 
   function classifyOutcome(document) {
-    const outcome = normalize(document.querySelector('[data-registration-outcome]')?.textContent)
+    const outcome = [...document.querySelectorAll('[data-registration-outcome], [role="alert"], .ant-message-notice-content, .ant-modal-body')]
+      .map((element) => normalize(element.textContent))
+      .filter(Boolean)
+      .join(' ')
       .toLocaleLowerCase('vi');
     if (/\b(lop hoc phan da day|lớp học phần đã đầy|het cho|hết chỗ)\b/.test(outcome)) {
       return 'full';

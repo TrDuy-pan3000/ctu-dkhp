@@ -97,3 +97,28 @@ test('disarming removes both run alarms and the persisted session', async () => 
   assert.deepEqual(cleared, ['preflight:run-1', 'submit:run-1']);
   assert.equal(erased, true);
 });
+
+test('prepares the next user-configured fallback only for a known full course', async () => {
+  const commands = [];
+  const coordinator = createCoordinator({
+    createAlarm: async () => {},
+    clock: async () => ({ ok: true, offsetMs: 0 }),
+    now: () => 0,
+    save: async () => {},
+    send: async (command) => commands.push(command),
+    id: () => 'run-1',
+  });
+
+  await coordinator.arm(run);
+  await coordinator.handleAlarm('preflight:run-1');
+  await coordinator.acceptPrepared('run-1', [{ code: 'CT112', group: '01' }]);
+  await coordinator.handleAlarm('submit:run-1');
+  const result = await coordinator.handleOutcome('run-1', { category: 'full', courseCode: 'CT112' });
+
+  assert.deepEqual(result, { ok: true, state: 'fallback-preparing' });
+  assert.deepEqual(commands.at(-1), {
+    type: 'PREPARE',
+    runId: 'run-1',
+    courses: [{ code: 'CT112', group: '02' }],
+  });
+});

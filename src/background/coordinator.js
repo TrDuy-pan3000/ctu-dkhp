@@ -69,17 +69,73 @@ export function createCoordinator(dependencies) {
 
   async function acceptPrepared(runId, prepared) {
     const session = sessions.get(runId);
-    if (!session || session.state !== RUN_STATES.PREFLIGHT) {
+    if (!session || ![RUN_STATES.PREFLIGHT, RUN_STATES.FALLBACK_PREPARING].includes(session.state)) {
       return { ok: false, error: 'PREPARE_OUT_OF_SEQUENCE' };
     }
 
-    const expected = primaryCourses(session.run);
+    const expected = session.nextCourses ?? primaryCourses(session.run);
     if (!sameCourses(expected, prepared)) {
       return { ok: false, error: 'PREPARED_FINGERPRINT_MISMATCH' };
     }
 
-    const next = await persist({ ...session, state: RUN_STATES.PREPARED, preparedFingerprint: prepared });
+    const state = session.state === RUN_STATES.PREFLIGHT
+      ? RUN_STATES.PREPARED
+      : RUN_STATES.FALLBACK_SUBMITTING;
+    const next = await persist({ ...session, state, preparedFingerprint: prepared, nextCourses: undefined });
     return { ok: true, state: next.state };
+  }
+
+  async function handleOutcome(runId, outcome) {
+    const session = sessions.get(runId);
+    if (!session || ![RUN_STATES.SUBMITTING_PRIMARY, RUN_STATES.FALLBACK_SUBMITTING].includes(session.state)) {
+      return { ok: false, error: 'OUTCOME_OUT_OF_SEQUENCE' };
+    }
+    if (outcome.category === 'success') {
+      const next = await persist({ ...session, state: RUN_STATES.VERIFIED_SUCCESS });
+      return { ok: true, state: next.state };
+    }
+    if (outcome.category !== 'full' || !outcome.courseCode) {
+      const next = await persist({ ...session, state: RUN_STATES.MANUAL_ATTENTION, reason: 'AMBIGUOUS_OUTCOME' });
+      return { ok: false, error: next.reason };
+    }
+
+    const course = session.run.courses.find((item) => item.code === outcome.courseCode);
+    const fallbackIndexes = { ...(session.fallbackIndexes ?? {}) };
+    const fallbackIndex = fallbackIndexes[outcome.courseCode] ?? 0;
+    const fallback = course?.fallbacks[fallbackIndex];
+    if (!fallback) {
+      const next = await persist({ ...session, state: RUN_STATES.MANUAL_ATTENTION, reason: 'FALLBACKS_EXHAUSTED' });
+      return { ok: false, error: next.reason };
+    }
+
+    fallbackIndexes[outcome.courseCode] = fallbackIndex + 1;
+    const nextCourses = session.preparedFingerprint.map((item) => item.code === outcome.courseCode
+      ? { ...item, group: fallback }
+      : item);
+    const next = await persist({
+      ...session,
+      state: RUN_STATES.FALLBACK_PREPARING,
+      attempt: session.attempt + 1,
+      fallbackIndexes,
+      nextCourses,
+      preparedFingerprint: null,
+    });
+    await dependencies.send?.({ type: 'PREPARE', runId, courses: nextCourses });
+    return { ok: true, state: next.state };
+  }
+
+  async function submitFallback(runId) {
+    const session = sessions.get(runId);
+    if (!session || session.state !== RUN_STATES.FALLBACK_SUBMITTING || !session.preparedFingerprint) {
+      return { ok: false, error: 'FALLBACK_NOT_PREPARED' };
+    }
+    await dependencies.send?.({
+      type: 'SUBMIT',
+      runId,
+      courses: session.preparedFingerprint,
+      dryRun: session.run.dryRun === true,
+    });
+    return { ok: true };
   }
 
   function restore(session) {
@@ -97,7 +153,7 @@ export function createCoordinator(dependencies) {
     return { ok: true };
   }
 
-  return { acceptPrepared, arm, disarm, handleAlarm, restore };
+  return { acceptPrepared, arm, disarm, handleAlarm, handleOutcome, restore, submitFallback };
 }
 
 function primaryCourses(run) {
