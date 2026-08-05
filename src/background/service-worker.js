@@ -2,6 +2,7 @@ import { estimateOffset } from '../shared/clock.js';
 import { createCoordinator } from './coordinator.js';
 
 const CTU_REGISTRATION_URL = 'https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan*';
+const CTU_REGISTRATION_PREFIX = 'https://dkmhfe.ctu.edu.vn/dangkyhocphan/sinhvien/dangkyhocphan';
 const TIME_SOURCES = [
   { url: 'https://timeapi.io/api/Time/current/zone?timeZone=Etc%2FUTC', precision: 'milliseconds' },
   { url: 'https://www.google.com/generate_204', precision: 'seconds' },
@@ -63,12 +64,17 @@ async function restoreSession() {
 }
 
 async function sendToRegistrationTab(command) {
-  const tabs = await chrome.tabs.query({ url: [CTU_REGISTRATION_URL] });
-  if (tabs.length !== 1 || !tabs[0].id) {
+  const activeTabs = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+  const activeCtuTabs = activeTabs.filter((tab) => tab.url?.startsWith(CTU_REGISTRATION_PREFIX));
+  const tabs = activeCtuTabs.length === 1
+    ? activeCtuTabs
+    : await chrome.tabs.query({ url: [CTU_REGISTRATION_URL] });
+  const ctuTabs = tabs.filter((tab) => tab.url?.startsWith(CTU_REGISTRATION_PREFIX));
+  if (ctuTabs.length !== 1 || !ctuTabs[0].id) {
     throw new Error('CTU_REGISTRATION_TAB_UNAVAILABLE');
   }
 
-  const response = await chrome.tabs.sendMessage(tabs[0].id, command);
+  const response = await chrome.tabs.sendMessage(ctuTabs[0].id, command);
   if (command.type === 'PREPARE') {
     if (!response?.ok) {
       throw new Error(response?.error ?? 'PREPARE_FAILED');
