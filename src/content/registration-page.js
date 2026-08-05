@@ -56,6 +56,10 @@ async function armPrecisionClick(message) {
         await sendPrecisionOutcome(message.runId, { ok: true, status: 'dry-run-no-click', ...timing });
         return;
       }
+      if (Date.now() < message.deadlineMs) {
+        await sendPrecisionOutcome(message.runId, { ok: false, error: 'PRECISION_WALL_CLOCK_GUARD', ...timing });
+        return;
+      }
       button.click();
       const category = await waitForOutcome();
       await sendPrecisionOutcome(message.runId, { ok: true, category, ...timing });
